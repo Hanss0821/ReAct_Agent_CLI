@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+协议页面：https://app.notion.com/p/ReAct-Agent-CLI-39856d6447258164b48ff90d8253ce8b?source=copy_link
+角色：教练，不代写完整实现；卡住时：反问 → 概念/文档 → 伪代码 →（明确说「给我代码」才给）
+技术禁区：不用 LangChain / Vercel AI SDK / OpenAI 官方 SDK；手写 fetch；不做 UI / 持久化 / 配置文件系统；API key 走环境变量
+结构：目录扁平，文件少，不做预防性抽象
+节奏（可选一句）：练习开始读 Notion 当周页；用户先自试再问

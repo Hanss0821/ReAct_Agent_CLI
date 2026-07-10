@@ -1,10 +1,8 @@
 import type {
-  Message,
-  ChoicesMessage,
-  ResponseData,
-  Model,
-  FetchOptions,
-} from "./types/model.js";
+  ChatCompletionRequest,
+  ChatCompletionResponse,
+  ChatMessage,
+} from "./types/chat.js";
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
@@ -15,7 +13,7 @@ process.on("SIGINT", () => {
   rl.close();
   process.exit(0);
 });
-const cacheMessage: (Message | ChoicesMessage)[] = [];
+const cacheMessage: ChatMessage[] = [];
 main();
 async function main() {
   try {
@@ -40,15 +38,15 @@ async function main() {
   }
 }
 
-async function reqAgent(messages: ChoicesMessage[]) {
+async function reqAgent(messages: ChatMessage[]) {
   const payload = {
     messages: messages,
     model: "kimi-k2.7-code",
-  } satisfies Model;
+  } satisfies ChatCompletionRequest;
 
   const body = JSON.stringify(payload);
 
-  const options: FetchOptions = {
+  const options = {
     method: "POST",
     headers: {
       Authorization: "Bearer " + process.env.MOONSHOT_API_KEY,
@@ -64,7 +62,7 @@ async function reqAgent(messages: ChoicesMessage[]) {
     if (!res.ok) {
       throw new Error(`${res.status}_${res.statusText}`);
     }
-    const data = (await res.json()) as ResponseData;
+    const data = (await res.json()) as ChatCompletionResponse;
     return data.choices[0].message;
   } catch (err) {
     console.error(err);

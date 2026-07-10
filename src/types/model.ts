@@ -14,15 +14,15 @@ export type FetchOptions = {
   body: string;
 };
 
-export interface choicesMessage {
+export interface ChoicesMessage {
   role: string;
   content: string;
-  tool_calss: object[];
+  tool_calss?: object[];
 }
 
 export interface choicesType {
   index: number;
-  message: choicesMessage;
+  message: ChoicesMessage;
   finish_reason: string;
 }
 

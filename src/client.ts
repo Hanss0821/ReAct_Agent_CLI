@@ -16,5 +16,8 @@ export async function createChatCompletion(
   const data = await request<ChatCompletionResponse>("/v1/chat/completions", {
     body: JSON.stringify(payload),
   });
+  if (!data.choices[0] || !data.choices[0].message) {
+    throw new Error(`agent repeat fail`);
+  }
   return data.choices[0].message;
 }

@@ -1,32 +1,35 @@
-type ChatRole = "system" | "user" | "assistant";
-type ChatContentPart =
-  | {
-      type: "text";
-      text: string;
-    }
-  | {
-      type: "image_url";
-      image_url: {
-        url: string;
-      };
-    }
-  | {
-      type: "video_url";
-      video_url: {
-        url: string;
-      };
-    };
-
 // 请求
 export type ChatCompletionRequest = {
   model: string;
   messages: ChatMessage[];
+  tools?: ToolDefinition[];
 };
 
-export type ChatMessage = {
-  role: ChatRole;
-  content: string | ChatContentPart[];
-};
+export type ChatMessage =
+  | {
+      role: "system" | "user";
+      content: string;
+    }
+  | {
+      role: "assistant";
+      content: string | null;
+      tool_calls?: ToolCall[];
+    }
+  | {
+      role: "tool";
+      content: string;
+      tool_call_id: string;
+      name: string;
+    };
+
+export interface ToolDefinition {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
 
 // 响应
 export type ChatCompletionResponse = {
@@ -38,6 +41,12 @@ export type ChatCompletionResponse = {
 
 type Choice = {
   index: number;
-  message: ChatMessage; // Week1：与历史消息同形
-  finish_reason: string; // "stop" | null 或文档里的联合类型
+  message: ChatMessage;
+  finish_reason: "stop" | "tool_calls"; // "stop" | null 或文档里的联合类型
+};
+
+export type ToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string }; // arguments 是 string！
 };

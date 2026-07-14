@@ -1,6 +1,7 @@
 import type { ChatMessage, ToolMessage } from "./types/chat.js";
 import { toolMaps, isToolName } from "./tools.js";
 import { createChatCompletion } from "./client.js";
+import { armSimulateOfflineOnce } from "./request.js";
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
@@ -17,16 +18,34 @@ main();
 
 async function main() {
   try {
-    console.log("Welcome To Kimi Agent! (Press Ctrl+C to quit)");
+    console.log("Welcome To Katsura Agent! (Press Ctrl+C to quit)");
+    console.log(
+      "调试：输入 __offline__ 武装下一次断网；或 __offline__ <问题> 对该问题模拟断网",
+    );
     while (true) {
       const answer = await rl.question("input your question: ");
       if (answer === "") {
         console.log("invalid input try again");
         continue;
       }
+      if (answer === "__offline__") {
+        armSimulateOfflineOnce();
+        console.log("已武装：下一次 API 请求将模拟断网（仅一次），请继续输入问题。");
+        continue;
+      }
+      let question = answer;
+      if (answer.startsWith("__offline__ ")) {
+        armSimulateOfflineOnce();
+        question = answer.slice("__offline__ ".length);
+        if (question === "") {
+          console.log("invalid input try again");
+          continue;
+        }
+      }
       console.log("Thinking....");
+      cacheMessage.push({ role: "user", content: question });
+      // 失败回滚，要保留当前提问做重试
       const checkPoint = cacheMessage.length;
-      cacheMessage.push({ role: "user", content: answer });
       try {
         // 工具可能会循环调用
         while (true) {

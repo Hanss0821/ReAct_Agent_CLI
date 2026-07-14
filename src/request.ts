@@ -1,5 +1,12 @@
 const baseURL: string = process.env.MOONSHOT_BASE_API || "";
 
+// 调试用：下一次 request 模拟网络失败，触发后自动复位
+let simulateOfflineOnce = false;
+
+export function armSimulateOfflineOnce() {
+  simulateOfflineOnce = true;
+}
+
 export async function request<T>(
   url: string,
   options?: Omit<RequestInit, "headers">,
@@ -15,6 +22,12 @@ export async function request<T>(
 
   try {
     if (!baseURL) throw new Error("api无效");
+    if (simulateOfflineOnce) {
+      simulateOfflineOnce = false;
+      throw new Error("Connect Timeout Error (simulated)", {
+        cause: new Error("UND_ERR_CONNECT_TIMEOUT"),
+      });
+    }
     const res = await fetch(`${baseURL}${url}`, params);
     if (!res.ok) {
       throw new Error(`${res.status}_${res.statusText}`);

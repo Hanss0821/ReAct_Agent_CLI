@@ -5,22 +5,24 @@ export type ChatCompletionRequest = {
   tools?: ToolDefinition[];
 };
 
-export type ChatMessage =
-  | {
-      role: "system" | "user";
-      content: string;
-    }
-  | {
-      role: "assistant";
-      content: string | null;
-      tool_calls?: ToolCall[];
-    }
-  | {
-      role: "tool";
-      content: string;
-      tool_call_id: string;
-      name: string;
-    };
+// 联合类型会做自动分发
+export type ChatMessage = SystemUserMessage | ToolMessage | AssistantMessage;
+// 对massage做进一步拆分
+type SystemUserMessage = {
+  role: "system" | "user";
+  content: string;
+};
+type AssistantMessage = {
+  role: "assistant";
+  content: string | null;
+  tool_calls?: ToolCall[];
+};
+export type ToolMessage = {
+  role: "tool";
+  content: string;
+  tool_call_id: string;
+  name: string;
+};
 
 export interface ToolDefinition {
   type: "function";
@@ -39,14 +41,25 @@ export type ChatCompletionResponse = {
   choices: Choice[];
 };
 
-type Choice = {
+export type Choice = {
   index: number;
-  message: ChatMessage;
-  finish_reason: "stop" | "tool_calls"; // "stop" | null 或文档里的联合类型
-};
+} & (
+  | { finish_reason: "stop"; message: AssistantMessage }
+  | {
+      finish_reason: "tool_calls";
+      message: AssistantMessage & { tool_calls: ToolCall[] };
+    }
+);
 
 export type ToolCall = {
   id: string;
   type: "function";
   function: { name: string; arguments: string }; // arguments 是 string！
+};
+
+// 工具类型
+export type ReadFileArgs = { path: string };
+
+export type ToolMap = {
+  read_file: (args: ReadFileArgs) => string;
 };

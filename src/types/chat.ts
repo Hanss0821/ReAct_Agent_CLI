@@ -59,7 +59,8 @@ export type ToolCall = {
 
 // 工具类型
 export type ReadFileArgs = { path: string };
-
+export type ExecShellArgs = { command: string };
 export type ToolMap = {
   read_file: (args: ReadFileArgs) => string;
+  shell_tool: (args: ExecShellArgs) => string;
 };

@@ -1,5 +1,5 @@
 import { request } from "./request.js";
-import { tool as readFileTool } from "./tools.js";
+import { tools } from "./tools.js";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -13,7 +13,7 @@ export async function createChatCompletion(
   const payload = {
     messages,
     model: "kimi-k2.7-code",
-    tools: [readFileTool],
+    tools: tools,
   } satisfies ChatCompletionRequest;
 
   const data = await request<ChatCompletionResponse>("/v1/chat/completions", {

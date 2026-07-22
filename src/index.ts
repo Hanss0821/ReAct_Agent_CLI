@@ -1,5 +1,5 @@
 import type { ChatMessage, ToolMessage } from "./types/chat.js";
-import { toolMaps, isToolName } from "./tools.js";
+import { toolMaps, isToolName, withTimeout } from "./tools.js";
 import { createChatCompletion } from "./client.js";
 import { armSimulateOfflineOnce } from "./request.js";
 
@@ -14,6 +14,12 @@ process.on("SIGINT", () => {
 });
 
 const cacheMessage: ChatMessage[] = [];
+// 工具循环最大次数
+const MAX_ITERATIONS = 10;
+// 单个工具执行最大时间
+const TOOL_TIMEOUT_MS = 5000;
+let iterations = 0;
+
 main();
 
 async function main() {
@@ -30,7 +36,9 @@ async function main() {
       }
       if (answer === "__offline__") {
         armSimulateOfflineOnce();
-        console.log("已武装：下一次 API 请求将模拟断网（仅一次），请继续输入问题。");
+        console.log(
+          "已武装：下一次 API 请求将模拟断网（仅一次），请继续输入问题。",
+        );
         continue;
       }
       let question = answer;
@@ -46,6 +54,7 @@ async function main() {
       cacheMessage.push({ role: "user", content: question });
       // 失败回滚，要保留当前提问做重试
       const checkPoint = cacheMessage.length;
+      iterations = 0; // 新一轮会话重置
       try {
         // 工具可能会循环调用
         while (true) {
@@ -54,6 +63,10 @@ async function main() {
               "[verbose] messages: ",
               JSON.stringify(cacheMessage, null, 2),
             );
+          iterations += 1; // 记录循环次数
+          if (iterations > MAX_ITERATIONS) {
+            throw new Error("Maximum number of iterations exceeded");
+          }
           const res = await createChatCompletion(cacheMessage);
           cacheMessage.push(res.message);
           if (res.finish_reason === "tool_calls") {
@@ -73,7 +86,7 @@ async function main() {
                   fn = toolMaps[name];
                 }
                 if (typeof fn === "function") {
-                  const result = fn(args);
+                  const result = await withTimeout(fn(args), TOOL_TIMEOUT_MS);
                   // 拿到工具执行结果，构建message，推送回大模型
                   toolMessage.content = result;
                 } else {

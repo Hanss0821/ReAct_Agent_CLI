@@ -39,7 +39,8 @@ export const tools: ToolDefinition[] = [
     function: {
       // 当 type 为 function 时，使用 function 字段定义具体的函数内容
       name: "shell_tool", // 函数的名称，请使用英文大小写字母、数据加上减号和下划线作为函数名称
-      description: "通过白名单所提供的shell命令，执行shell操作",
+      description:
+        "通过白名单所提供的shell命令，执行shell操作(只能跑白名单里的 git 只读子命令，列文件用 git ls-files)",
       parameters: {
         // 使用 parameters 字段来定义函数接收的参数
         type: "object", // 固定使用 type: object 来使 Kimi 大模型生成一个 JSON Object 参数
@@ -65,40 +66,68 @@ export function read_file({ path }: ReadFileArgs) {
   // __dirname 在 CommonJS (require/module.exports) 中是内置变量，
   // 但在 ES module (import/export) 中并不是，需要自己定义。
   const resolvePath = resolve(path);
-  try {
-    return readFileSync(resolvePath, "utf-8");
-  } catch (err) {
-    if (err instanceof Error) {
-      return err.message;
+  return new Promise<string>((res, rej) => {
+    try {
+      res(readFileSync(resolvePath, "utf-8"));
+    } catch (err) {
+      if (err instanceof Error) {
+        rej(err.message);
+        return;
+      }
+      rej(String(err)); // 失败当观察结果
     }
-    return String(err); // 失败当观察结果
-  }
+  });
 }
 
 const ALLOWED_COMMANDS = ["git"];
-const ALLOWED_GIT_SUBCOMMANDS = ["status", "log", "diff"];
+const ALLOWED_GIT_SUBCOMMANDS = ["status", "log", "diff", "ls-files"];
 
 // shell命令工具
 export function shell_tool({ command }: ExecShellArgs) {
   const parts = command.split(" "); // 按空格拆成数组
   const cmd = parts[0];
   const args = parts.slice(1); // 剩余部分
-  // 不符合白名单的命令不能抛错，错误和业务逻辑应该逻辑清晰，不要混淆，不允许是业务期望结果，不是错误
-  if (!ALLOWED_COMMANDS.includes(cmd)) {
-    return `command rejected: ${cmd} is not allowed`;
-  }
-  if (cmd === "git") {
-    const sub = args[0];
-    if (!sub) return `command rejected: git undefined is not allowed `;
-    if (!ALLOWED_GIT_SUBCOMMANDS.includes(args[0]))
-      return `command rejected: git ${args[0]} is not allowed`;
-  }
-  try {
-    return execFileSync(cmd, args, { encoding: "utf-8" });
-  } catch (err) {
-    if (err instanceof Error) {
-      return err.message;
+  return new Promise<string>((res, rej) => {
+    // 不符合白名单的命令不能抛错，错误和业务逻辑应该逻辑清晰，不要混淆，不允许是业务期望结果，不是错误
+    if (!ALLOWED_COMMANDS.includes(cmd)) {
+      res(`command rejected: ${cmd} is not allowed`);
+      return;
     }
-    return String(err);
-  }
+    if (cmd === "git") {
+      const sub = args[0];
+      if (!sub) {
+        res(`command rejected: git undefined is not allowed `);
+        return;
+      }
+      if (!ALLOWED_GIT_SUBCOMMANDS.includes(args[0])) {
+        res(`command rejected: git ${args[0]} is not allowed`);
+        return;
+      }
+    }
+    try {
+      res(execFileSync(cmd, args, { encoding: "utf-8" }));
+    } catch (err) {
+      if (err instanceof Error) {
+        rej(err.message);
+        return;
+      }
+      rej(String(err));
+    }
+  });
+}
+
+// 判断工具调用是否超时
+export function withTimeout<T>(promise: Promise<T>, ms: number) {
+  // 返回值回拿各工具联合类型的结果
+  return Promise.race([promise, sleepThenReject(ms, "tool timeout....")]);
+}
+
+// 工具函数：超时请求
+export function sleepThenReject(ms: number, message: string) {
+  // 只有reject的情况用never 成功时……不存在（永远不会成功落成某个值）
+  return new Promise<never>((res, rej) => {
+    setTimeout(() => {
+      rej(message);
+    }, ms);
+  });
 }

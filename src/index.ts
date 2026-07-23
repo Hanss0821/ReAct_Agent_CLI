@@ -2,7 +2,6 @@ import type { ChatMessage, ToolMessage } from "./types/chat.js";
 import { toolMaps, isToolName, withTimeout } from "./tools.js";
 import { createChatCompletion } from "./client.js";
 import { armSimulateOfflineOnce } from "./request.js";
-
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 const verbose = process.argv.includes("--verbose");

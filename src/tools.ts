@@ -2,11 +2,18 @@ import type { ToolDefinition } from "./types/chat.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
-import type { ToolMap, ReadFileArgs, ExecShellArgs } from "./types/chat.js";
+import type {
+  ToolMap,
+  ReadFileArgs,
+  ExecShellArgs,
+  WebSearchArgs,
+  SearchCallResponse,
+} from "./types/chat.js";
 
 export const toolMaps: ToolMap = {
   read_file,
   shell_tool,
+  web_search,
 };
 export function isToolName(name: string): name is keyof ToolMap {
   return name in toolMaps;
@@ -51,6 +58,27 @@ export const tools: ToolDefinition[] = [
             // 在这里，key 是参数名称，value 是参数的具体定义
             type: "string", // 使用 type 定义参数类型
             description: "用于执行的shell命令",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function", // 约定的字段 type，目前支持 function 作为值
+    function: {
+      // 当 type 为 function 时，使用 function 字段定义具体的函数内容
+      name: "web_search", // 函数的名称，请使用英文大小写字母、数据加上减号和下划线作为函数名称
+      description: "用网络搜索查询公开信息，返回若干条标题，链接与摘要",
+      parameters: {
+        // 使用 parameters 字段来定义函数接收的参数
+        type: "object", // 固定使用 type: object 来使 Kimi 大模型生成一个 JSON Object 参数
+        required: ["query"], // 使用 required 字段告诉 Kimi 大模型哪些参数是必填项
+        properties: {
+          // properties 中是具体的参数定义，你可以定义多个参数
+          query: {
+            // 在这里，key 是参数名称，value 是参数的具体定义
+            type: "string", // 使用 type 定义参数类型
+            description: "搜索关键词或问题",
           },
         },
       },
@@ -114,6 +142,45 @@ export function shell_tool({ command }: ExecShellArgs) {
       rej(String(err));
     }
   });
+}
+
+// 联网搜索
+export async function web_search({ query }: WebSearchArgs) {
+  const api = "https://api.tavily.com/search";
+  const searchKey = process.env.TAVILY_API_KEY;
+  if (!searchKey) {
+    return "web_search error: missing TAVILY_API_KEY";
+  }
+  const params = {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + process.env.TAVILY_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      search_depth: "basic",
+    }),
+  };
+  try {
+    const res = await fetch(api, params);
+    // fetch不会reject 4xx/5xx的请求
+    if (!res.ok) {
+      throw new Error(`${res.status}_${res.statusText} `);
+    }
+    const data = (await res.json()) as SearchCallResponse;
+    // 处理文本信息给大模型
+    return data.results
+      .map((item) => {
+        return item.title + "," + item.url + "," + item.content.slice(0, 200); // 取前200字
+      })
+      .join("\n\n");
+  } catch (err) {
+    if (err instanceof Error) {
+      throw new Error(`${err.message}`, { cause: err });
+    }
+    throw err;
+  }
 }
 
 // 判断工具调用是否超时

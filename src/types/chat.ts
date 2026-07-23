@@ -57,10 +57,25 @@ export type ToolCall = {
   function: { name: string; arguments: string }; // arguments 是 string！
 };
 
+// 搜索工具参数
+export type SearchCallResponse = {
+  query: string;
+  responseTime: number;
+  results: SearchCall[];
+};
+// 工具结果
+export type SearchCall = {
+  title: string;
+  url: string;
+  content: string;
+};
 // 工具类型
 export type ReadFileArgs = { path: string };
 export type ExecShellArgs = { command: string };
+export type WebSearchArgs = { query: string };
+
 export type ToolMap = {
   read_file: (args: ReadFileArgs) => Promise<string>;
   shell_tool: (args: ExecShellArgs) => Promise<string>;
+  web_search: (args: WebSearchArgs) => Promise<string>;
 };

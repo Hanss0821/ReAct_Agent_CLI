@@ -21,7 +21,7 @@ export async function request<T>(
   };
 
   try {
-    if (!baseURL) throw new Error("api无效");
+    if (!baseURL) throw new Error("api inVaild");
     if (simulateOfflineOnce) {
       simulateOfflineOnce = false;
       throw new Error("Connect Timeout Error (simulated)", {

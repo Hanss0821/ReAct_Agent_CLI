@@ -30,7 +30,7 @@ export async function request<T>(
     }
     const res = await fetch(`${baseURL}${url}`, params);
     if (!res.ok) {
-      throw new Error(`${res.status}_${res.statusText}`);
+      throw new Error(`status_${res.status}_${res.statusText}`);
     }
     return (await res.json()) as T;
   } catch (err) {

@@ -66,7 +66,9 @@ async function main() {
           if (iterations > MAX_ITERATIONS) {
             throw new Error("Maximum number of iterations exceeded");
           }
-          const res = await createChatCompletion(cacheMessage);
+          const res = await createChatCompletion(cacheMessage, {
+            shouldRetry: true,
+          });
           cacheMessage.push(res.message);
           if (res.finish_reason === "tool_calls") {
             // 调用工具执行

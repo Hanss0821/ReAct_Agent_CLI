@@ -5,6 +5,9 @@ export type ChatCompletionRequest = {
   tools?: ToolDefinition[];
 };
 
+export type ChatCompletionOption = {
+  shouldRetry?: boolean;
+};
 // 联合类型会做自动分发
 export type ChatMessage = SystemUserMessage | ToolMessage | AssistantMessage;
 // 对massage做进一步拆分

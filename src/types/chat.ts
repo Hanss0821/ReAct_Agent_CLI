@@ -3,6 +3,7 @@ export type ChatCompletionRequest = {
   model: string;
   messages: ChatMessage[];
   tools?: ToolDefinition[];
+  stream?: boolean;
 };
 
 export type ChatCompletionOption = {

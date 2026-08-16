@@ -20,6 +20,7 @@ export async function createChatCompletion(
     messages,
     model: "kimi-k2.7-code",
     tools: tools,
+    stream: true // 流式输出
   } satisfies ChatCompletionRequest;
   let attempt = 0;
   while (true) {

@@ -42,60 +42,11 @@ export async function request<T>(
   }
 }
 
-/** 一段 SSE 事件的句号：连续两个换行 */
-const SSE_BLANK_LINE = "\n\n";
-const SSE_DATA_PREFIX = "data:";
-const SSE_STREAM_END = "[DONE]";
-
-type SseCutResult = {
-  /** 已经写完、可以交给业务层的 JSON */
-  payloads: unknown[];
-  /** 还没写完的半截，留给下一轮拼接 */
-  pendingText: string;
-  /** 服务器发来了结束标记 */
-  streamFinished: boolean;
-};
-
-/**
- * 只负责「剪纸条」：把已经出现空行的完整段剪出来。
- * 半截句子原样放回 pendingText，不在这里等网络。
- */
-function cutCompleteSsePayloads(pendingText: string): SseCutResult {
-  const payloads: unknown[] = [];
-
-  while (true) {
-    const blankLineAt = pendingText.indexOf(SSE_BLANK_LINE);
-    // 还没有句号：整段都是半截，等邮差再送字
-    if (blankLineAt === -1) {
-      return { payloads, pendingText, streamFinished: false };
-    }
-
-    const eventBlock = pendingText.slice(0, blankLineAt);
-    pendingText = pendingText.slice(blankLineAt + SSE_BLANK_LINE.length);
-
-    const dataPrefixAt = eventBlock.indexOf(SSE_DATA_PREFIX);
-    // 空段或心跳（: ping）不是业务数据，看下一段
-    if (dataPrefixAt === -1 || eventBlock.trim() === "") {
-      continue;
-    }
-
-    const dataText = eventBlock
-      .slice(dataPrefixAt + SSE_DATA_PREFIX.length)
-      .trim();
-
-    if (dataText.includes(SSE_STREAM_END)) {
-      return { payloads, pendingText: "", streamFinished: true };
-    }
-
-    payloads.push(JSON.parse(dataText));
-  }
-}
-
-/** 流式请求：外层只读网络，剪事件交给 cutCompleteSsePayloads */
-export async function* streamRequest(
+// 流式请求单独处理
+export async function requestStream<T>(
   url: string,
   options?: Omit<RequestInit, "headers">,
-) {
+): Promise<void> {
   const params = {
     method: "POST",
     headers: {
@@ -115,35 +66,72 @@ export async function* streamRequest(
     }
     const res = await fetch(`${baseURL}${url}`, params);
     if (!res.ok) {
-      const errorBody = await res.text();
-      throw new Error(`status_${res.status}_${errorBody}`);
+      throw new Error(`status_${res.status}_${await res.text()}`);
     }
     if (!res.body) {
-      throw new Error(`Response has no body (stream not supported or error)`);
+      throw new Error("响应正文为空");
     }
-
-    let pendingText = "";
+    // 创建阅读器
     const reader = res.body.getReader();
+    // 创建解码器：默认按 UTF-8 将字节还原成文字
     const decoder = new TextDecoder();
-
-    while (true) {
-      const { value: bytes, done: streamClosed } = await reader.read();
-      // 流结束时无参 decode，把藏在 decoder 里的半个汉字吐出来
-      pendingText += streamClosed
-        ? decoder.decode()
-        : decoder.decode(bytes, { stream: true });
-
-      const cut = cutCompleteSsePayloads(pendingText);
-      pendingText = cut.pendingText;
-      for (const payload of cut.payloads) {
-        yield payload;
+    let pendingText = "";
+    let fullContent = "";
+    try {
+      while (true) {
+        // 获取字节码内容
+        const { value, done } = await reader.read();
+        if (done) {
+          // 正文结束，完成解码器的收尾
+          const remainingText = decoder.decode();
+          if (remainingText) {
+            console.log("最后剩余的文字：", remainingText);
+          }
+          console.log("响应正文已全部读完");
+          break;
+        }
+        let text = decoder.decode(value, { stream: true }); // 流读取，因为一次读取未必是单字节
+        // 原样保存：这里不去掉 data:，也不 trim
+        pendingText += text;
+        while (true) {
+          // 同时识别 \n\n 和 \r\n\r\n
+          const boundary = /\r?\n\r?\n/.exec(pendingText);
+          if (boundary === null) {
+            // 没有完整事件，保留文字，等下一次网络读取
+            break;
+          }
+          const endIndex = boundary.index; // 到分隔符前的长度
+          const separatorLength = boundary[0].length; // 分隔符内容的长度
+          // 取出一条事件
+          const eventText = pendingText.slice(0, endIndex);
+          // 删除已取出的事件和分隔符，保留剩余部分
+          pendingText = pendingText.slice(endIndex + separatorLength);
+          if (!eventText.startsWith("data:")) {
+            continue;
+          }
+          // 从第 5 个位置开始取，跳过 data:
+          const dataText = eventText.slice(5).trim();
+          if (dataText === "[DONE]") {
+            process.stdout.write("\n");
+            return;
+          }
+          const chunk = JSON.parse(dataText);
+          const content = chunk.choices[0]?.delta?.content;
+          if (typeof content === "string" && content !== "") {
+            fullContent += content;
+            process.stdout.write(content);
+          }
+        }
       }
-
-      if (cut.streamFinished || streamClosed) {
-        return;
+    } finally {
+      try {
+        await reader.cancel();
+      } finally {
+        reader.releaseLock();
       }
     }
   } catch (err) {
+    // 保留原始错误，在 message 中附带请求路径
     if (err instanceof Error) {
       throw new Error(`[${url}] ${err.message}`, { cause: err });
     }

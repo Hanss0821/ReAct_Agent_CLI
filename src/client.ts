@@ -1,4 +1,4 @@
-import { request } from "./request.js";
+import { request, requestStream } from "./request.js";
 import { tools } from "./tools.js";
 import type {
   ChatCompletionRequest,
@@ -20,21 +20,22 @@ export async function createChatCompletion(
     messages,
     model: "kimi-k2.7-code",
     tools: tools,
-    stream: true // 流式输出
+    stream: true, // 流式输出
   } satisfies ChatCompletionRequest;
   let attempt = 0;
   while (true) {
     try {
-      const data = await request<ChatCompletionResponse>(
+      const data = await requestStream<ChatCompletionResponse>(
         "/v1/chat/completions",
         {
           body: JSON.stringify(payload),
         },
       );
-      if (!data.choices[0]) {
-        throw new Error(`agent repeat fail`);
-      }
-      return data.choices[0];
+      throw new Error("本次读取实验结束，这是主动停止");
+      // if (!data.choices[0]) {
+      //   throw new Error(`agent repeat fail`);
+      // }
+      // return data.choices[0];
     } catch (err) {
       if (shouldRetry && err instanceof Error) {
         // 是否超过限制

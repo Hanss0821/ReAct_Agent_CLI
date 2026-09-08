@@ -105,7 +105,7 @@ async function main() {
             }
             continue;
           } else if (res.finish_reason === "stop") {
-            console.log(res.message.content ?? "");
+            // console.log(res.message.content ?? "");
           } else {
             console.log("unknown finish_reason", res);
           }

@@ -4,6 +4,7 @@ import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
   ChatCompletionOption,
+  ChatCompletionChunk,
   ChatMessage,
   Choice,
 } from "./types/chat.js";
@@ -25,13 +26,14 @@ export async function createChatCompletion(
   let attempt = 0;
   while (true) {
     try {
-      const data = await requestStream<ChatCompletionResponse>(
-        "/v1/chat/completions",
-        {
-          body: JSON.stringify(payload),
-        },
-      );
-      throw new Error("本次读取实验结束，这是主动停止");
+      const data = await requestStream("/v1/chat/completions", {
+        body: JSON.stringify(payload),
+      });
+      const choice = data.choices[0];
+      if (!choice) {
+        throw new Error("响应中没有回答");
+      }
+      return choice;
       // if (!data.choices[0]) {
       //   throw new Error(`agent repeat fail`);
       // }

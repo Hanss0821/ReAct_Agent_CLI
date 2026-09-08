@@ -19,6 +19,7 @@ type SystemUserMessage = {
 type AssistantMessage = {
   role: "assistant";
   content: string | null;
+  reasoning_content?: string | null;
   tool_calls?: ToolCall[];
 };
 export type ToolMessage = {
@@ -45,6 +46,40 @@ export type ChatCompletionResponse = {
   choices: Choice[];
 };
 
+// 单条流式 JSON 消息
+export type ChatCompletionChunk = {
+  id: string;
+  object: "chat.completion.chunk";
+  created: number;
+  model: string;
+  choices: ChunkChoice[];
+};
+
+// 这一条消息，对某个回答新增了什么
+export type ChunkChoice = {
+  index: number;
+  delta: ChatCompletionDelta;
+  finish_reason: "stop" | "length" | "tool_calls" | null;
+};
+
+// 新增内容：可能只有正文，也可能只有工具参数，甚至是空对象
+export type ChatCompletionDelta = {
+  role?: "assistant";
+  content?: string | null;
+  reasoning_content?: string | null;
+  tool_calls?: ToolCallDelta[];
+};
+
+// 一次工具调用的局部信息
+export type ToolCallDelta = {
+  index: number;
+  id?: string;
+  type?: "function";
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+};
 export type Choice = {
   index: number;
 } & (

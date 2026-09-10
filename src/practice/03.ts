@@ -19,7 +19,7 @@ const chunks = ["A\n\nB\n\n"];
    */
 const res = splitMessages(chunks);
 console.log(res);
-function splitMessages(chunks: string[]): SplitResult {
+export function splitMessages(chunks: string[]): SplitResult {
   if (chunks.length === 0) {
     return {
       messages: [],
@@ -67,14 +67,14 @@ type ToolConfig = {
     description: "",
   };
 
-  const c: ToolSummary = {
-    name: "read_file",
-  }; // 应报错：缺少 description
+  // const c: ToolSummary = {
+  //   name: "read_file",
+  // }; // 应报错：缺少 description
 
-  const d: ToolSummary = {
-    name: "read_file",
-    description: 123,
-  }; // 应报错：description 类型错误
+  // const d: ToolSummary = {
+  //   name: "read_file",
+  //   description: 123,
+  // }; // 应报错：description 类型错误
   type ToolPatch = Partial<ToolConfig>;
   const original: ToolConfig = {
     name: "read_file",
@@ -92,7 +92,7 @@ type ToolConfig = {
 
   updateTool(original, {}); // 合法，返回内容与原配置一致
 
-  updateTool(original, { enabled: "否" }); // 应有类型错误
+  // updateTool(original, { enabled: "否" }); // 应有类型错误
 
   function updateTool(config: ToolConfig, patch: ToolPatch) {
     return {
